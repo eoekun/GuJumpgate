@@ -518,6 +518,7 @@
 
     async function runHostedCheckoutPayPalFlow(tabId, guestProfile) {
       const startedAt = Date.now();
+      let verificationSubmitted = false;
       while (Date.now() - startedAt < HOSTED_CHECKOUT_PAYPAL_LOOP_TIMEOUT_MS) {
         throwIfStopped();
         const tab = await chrome?.tabs?.get?.(tabId).catch(() => null);
@@ -548,11 +549,16 @@
 
         const pageState = await getHostedCheckoutPayPalState(tabId);
         if (pageState.hostedStage === 'verification' && pageState.verificationInputsVisible) {
+          if (verificationSubmitted) {
+            await sleepWithStop(1000);
+            continue;
+          }
           await addLog('步骤 6：检测到 PayPal hosted checkout 验证码弹窗，正在获取并填写验证码...', 'info');
           const verificationCode = await pollHostedCheckoutVerificationCode();
           await runHostedCheckoutPayPalStep(tabId, {
             verificationCode,
           });
+          verificationSubmitted = true;
           await sleepWithStop(1000);
           continue;
         }
