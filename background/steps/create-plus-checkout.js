@@ -460,7 +460,7 @@
           }
           verificationSubmitted = true;
         }
-        await sleepWithStop(500);
+        await sleepWithStop(jitteredDelay(600));
       }
 
       throw new Error('步骤 6：hosted checkout OpenAI/Stripe 页面提交后长时间未跳转到 PayPal 或成功页。');
@@ -516,18 +516,26 @@
       return successTab;
     }
 
+    function jitteredDelay(baseMs) {
+      const jitter = Math.floor(Math.random() * Math.max(100, Math.floor(baseMs * 0.4)));
+      return baseMs + jitter;
+    }
+
     async function runHostedCheckoutPayPalFlow(tabId, guestProfile) {
       const startedAt = Date.now();
       let verificationSubmitted = false;
+      let guestCheckoutSubmitted = false;
+      let payLoginSubmitted = false;
       while (Date.now() - startedAt < HOSTED_CHECKOUT_PAYPAL_LOOP_TIMEOUT_MS) {
         throwIfStopped();
+        await sleepWithStop(jitteredDelay(800));
         const tab = await chrome?.tabs?.get?.(tabId).catch(() => null);
         if (!tab) {
           throw new Error('步骤 6：hosted checkout PayPal 标签页已关闭。');
         }
         const currentUrl = String(tab.url || '').trim();
         if (!currentUrl) {
-          await sleepWithStop(500);
+          await sleepWithStop(jitteredDelay(500));
           continue;
         }
         if (isPaymentsSuccessUrl(currentUrl)) {
@@ -543,14 +551,14 @@
         if (isPayPalHermesUrl(currentUrl)) {
           await addLog(`步骤 6：检测到 PayPal Hermes 复核页（${currentUrl}），按油猴脚本方式直接等待并点击 Agree and Continue...`, 'info');
           await runHostedCheckoutPayPalStep(tabId, {});
-          await sleepWithStop(1000);
+          await sleepWithStop(jitteredDelay(1500));
           continue;
         }
 
         const pageState = await getHostedCheckoutPayPalState(tabId);
         if (pageState.hostedStage === 'verification' && pageState.verificationInputsVisible) {
           if (verificationSubmitted) {
-            await sleepWithStop(1000);
+            await sleepWithStop(jitteredDelay(1500));
             continue;
           }
           await addLog('步骤 6：检测到 PayPal hosted checkout 验证码弹窗，正在获取并填写验证码...', 'info');
@@ -559,20 +567,29 @@
             verificationCode,
           });
           verificationSubmitted = true;
-          await sleepWithStop(1000);
+          await sleepWithStop(jitteredDelay(1500));
           continue;
         }
 
         if (pageState.hostedStage === 'pay_login') {
+          if (payLoginSubmitted) {
+            await sleepWithStop(jitteredDelay(1500));
+            continue;
+          }
           await addLog('步骤 6：检测到 PayPal hosted checkout 登录页，正在填写邮箱并继续...', 'info');
           await runHostedCheckoutPayPalStep(tabId, {
             email: guestProfile.email,
           });
-          await sleepWithStop(1000);
+          payLoginSubmitted = true;
+          await sleepWithStop(jitteredDelay(1500));
           continue;
         }
 
         if (pageState.hostedStage === 'guest_checkout') {
+          if (guestCheckoutSubmitted) {
+            await sleepWithStop(jitteredDelay(1500));
+            continue;
+          }
           const runtimeConfig = await getHostedCheckoutRuntimeConfig();
           const configuredPhone = String(runtimeConfig?.phone || '').trim();
           await addLog(`步骤 6：当前 hosted checkout 电话配置为 ${configuredPhone || '(空，将回退默认值)'}。`, 'info');
@@ -585,14 +602,15 @@
             ...guestProfile,
             phone: String(runtimeConfig?.phone || guestProfile.phone || '').trim(),
           });
-          await sleepWithStop(1500);
+          guestCheckoutSubmitted = true;
+          await sleepWithStop(jitteredDelay(2000));
           continue;
         }
 
         if (pageState.hostedStage === 'review_consent') {
           await addLog('步骤 6：检测到 PayPal hosted checkout 账单确认页，正在点击继续...', 'info');
           await runHostedCheckoutPayPalStep(tabId, {});
-          await sleepWithStop(1000);
+          await sleepWithStop(jitteredDelay(1500));
           continue;
         }
 
@@ -600,7 +618,7 @@
           throw new Error('步骤 6：hosted checkout 流程意外进入了普通 PayPal 授权页，当前流程未配置 PayPal 账号授权。');
         }
 
-        await sleepWithStop(1000);
+        await sleepWithStop(jitteredDelay(1000));
       }
       throw new Error('步骤 6：hosted checkout PayPal 自动化超时，长时间未完成支付链路。');
     }
