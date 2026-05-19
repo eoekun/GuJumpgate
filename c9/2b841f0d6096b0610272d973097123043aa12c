@@ -1,0 +1,19 @@
+background/steps/create-plus-checkout.js
+  s_8d349678ca36b2::t_a2d4dfbf4ef48f 521,552-555,561
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "c92b841f0d6096b0610272d973097123043aa12c",
+  "prompts": {},
+  "sessions": {
+    "s_8d349678ca36b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f7e61f4-a6d6-47ac-a3d3-8cd103f1e9fb",
+        "model": "mimo-v2.5-pro"
+      },
+      "human_author": "eoekun <eoekun@qq.com>"
+    }
+  }
+}
